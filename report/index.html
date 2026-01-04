@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="manifest" href="manifest.json">
+    
+    <title>Ministry Helper</title>
+    
+    <style>
+        :root { 
+            --primary: #2563eb; --bg: #f8fafc; --card: #ffffff; 
+            --text: #1e293b; --border: #cbd5e1; --student: #8b5cf6;
+        }
+        
+        body.dark-mode { 
+            --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; --border: #334155; 
+        }
+        
+        body { 
+            font-family: -apple-system, system-ui, sans-serif; 
+            background: var(--bg); color: var(--text); margin: 0; padding: 15px;
+            transition: background 0.3s, color 0.3s;
+            padding-bottom: 90px;
+        }
+
+        .container { width: 100%; max-width: 500px; margin: auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .editable-title { font-size: 1.5rem; font-weight: 800; border: none; background: transparent; color: var(--text); outline: none; width: 70%; }
+
+        /* Navigation Bar */
+        .nav-bar {
+            position: fixed; bottom: 0; left: 0; width: 100%; background: var(--card);
+            display: flex; justify-content: space-around; padding: 12px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1); border-top: 1px solid var(--border);
+            z-index: 1000;
+        }
+        .nav-item { border: none; background: none; color: #64748b; font-weight: 600; font-size: 0.9rem; cursor: pointer; display: flex; flex-direction: column; align-items: center; }
+        .nav-item.active { color: var(--primary); }
+
+        /* Pages */
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .summary-card { 
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; 
+            background: var(--primary); color: white; padding: 1.2rem; 
+            border-radius: 15px; margin-bottom: 20px;
+        }
+        .student-header { background: var(--student) !important; }
+        .stat-box { text-align: center; }
+        .stat-val { font-size: 1.5rem; font-weight: 800; display: block; }
+        .stat-label { font-size: 0.7rem; opacity: 0.9; text-transform: uppercase; }
+
+        .card { background: var(--card); padding: 1.2rem; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        input, textarea { 
+            width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); 
+            border-radius: 10px; background: var(--card); color: var(--text); box-sizing: border-box; font-size: 1rem;
+        }
+        
+        button { padding: 12px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; color: white; transition: 0.2s; }
+        button:active { transform: scale(0.95); }
+        .btn-save { background: var(--primary); width: 100%; margin-bottom: 10px; }
+        .btn-student { background: var(--student); width: 100%; margin-bottom: 10px; }
+        
+        .action-btns { display: flex; gap: 5px; }
+        .btn-circle { width: 35px; height: 35px; padding: 0; border-radius: 50%; font-size: 1rem; display: flex; align-items: center; justify-content: center; }
+        .btn-del { background: #ef4444; }
+        .btn-map { background: #16a34a; }
+        .btn-call { background: #2563eb; }
+
+        table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 15px; overflow: hidden; }
+        th { background: rgba(0,0,0,0.03); padding: 12px 8px; text-align: left; font-size: 0.75rem; color: #64748b; }
+        td { padding: 12px 8px; border-bottom: 1px solid var(--border); font-size: 0.9rem; vertical-align: middle; }
+        
+        .note-text { font-size: 0.8rem; color: #64748b; margin-top: 4px; display: block; }
+        body.dark-mode .note-text { color: #94a3b8; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <input type="text" id="siteName" class="editable-title" value="My Tracker" oninput="saveTitle()">
+        <button onclick="toggleDarkMode()" style="background:none; border:none; font-size:1.2rem; cursor:pointer">🌓</button>
+    </div>
+
+    <div id="workPage" class="page active">
+        <div class="summary-card">
+            <div class="stat-box"><span class="stat-val" id="totalHours">0</span><span class="stat-label">Total Hours</span></div>
+            <div class="stat-box"><span class="stat-val" id="totalBs">0</span><span class="stat-label">Total B/s</span></div>
+        </div>
+        <div class="card">
+            <input type="text" id="workDate" placeholder="Date (e.g. 20 Mon)">
+            <input type="number" id="workHours" placeholder="Hours">
+            <input type="number" id="workBs" placeholder="B/s">
+            <button class="btn-save" onclick="addWork()">Save Entry</button>
+            <button style="background:#16a34a; width:100%" onclick="downloadCSV()">Export CSV</button>
+        </div>
+        <table>
+            <thead><tr><th>Date</th><th>Hrs</th><th>B/s</th><th>Action</th></tr></thead>
+            <tbody id="workTable"></tbody>
+        </table>
+    </div>
+
+    <div id="studentPage" class="page">
+        <div class="summary-card student-header">
+            <div class="stat-box" style="grid-column: span 2;">
+                <span class="stat-val" id="studentCount">0</span><span class="stat-label">Bible Students</span>
+            </div>
+        </div>
+        <div class="card">
+            <input type="text" id="studentName" placeholder="Student Name / Phone">
+            <input type="text" id="studentLoc" placeholder="Address / Location">
+            <input type="text" id="studentNote" placeholder="Notes (Last lesson/study)">
+            <button class="btn-student" onclick="addStudent()">Add Student</button>
+        </div>
+        <table>
+            <thead><tr><th>Student Info</th><th>Action</th></tr></thead>
+            <tbody id="studentTable"></tbody>
+        </table>
+    </div>
+</div>
+
+<nav class="nav-bar">
+    <button class="nav-item active" id="btnWork" onclick="showPage('work')"><span>📊</span>Work</button>
+    <button class="nav-item" id="btnStudent" onclick="showPage('student')"><span>📖</span>Students</button>
+</nav>
+
+<script>
+    const WORK_KEY = 'myWorkDataV3';
+    const STUDENT_KEY = 'myStudentDataV3';
+
+    function showPage(page) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        if(page === 'work') {
+            document.getElementById('workPage').classList.add('active');
+            document.getElementById('btnWork').classList.add('active');
+        } else {
+            document.getElementById('studentPage').classList.add('active');
+            document.getElementById('btnStudent').classList.add('active');
+        }
+    }
+
+    // --- WORK LOGIC ---
+    function addWork() {
+        const d = document.getElementById('workDate'), h = document.getElementById('workHours'), b = document.getElementById('workBs');
+        if(!d.value) return;
+        renderWorkRow(d.value, h.value || 0, b.value || 0);
+        saveWork();
+        d.value=''; h.value=''; b.value='';
+    }
+
+    function renderWorkRow(date, hours, bs) {
+        const row = document.getElementById('workTable').insertRow(0);
+        row.innerHTML = `<td><b>${date}</b></td><td>${hours}</td><td>${bs}</td>
+            <td><button class="btn-circle btn-del" onclick="this.closest('tr').remove();saveWork();">✕</button></td>`;
+    }
+
+    function saveWork() {
+        const rows = []; let th=0, tb=0;
+        document.querySelectorAll('#workTable tr').forEach(tr => {
+            const h = parseFloat(tr.cells[1].innerText), b = parseFloat(tr.cells[2].innerText);
+            th+=h; tb+=b;
+            rows.push({date: tr.cells[0].innerText, hours: h, bs: b});
+        });
+        document.getElementById('totalHours').innerText = th;
+        document.getElementById('totalBs').innerText = tb;
+        localStorage.setItem(WORK_KEY, JSON.stringify(rows));
+    }
+
+    // --- STUDENT LOGIC ---
+    function addStudent() {
+        const n = document.getElementById('studentName'), l = document.getElementById('studentLoc'), nt = document.getElementById('studentNote');
+        if(!n.value) return;
+        renderStudentRow(n.value, l.value, nt.value);
+        saveStudents();
+        n.value=''; l.value=''; nt.value='';
+    }
+
+    function renderStudentRow(name, loc, note) {
+        const row = document.getElementById('studentTable').insertRow(0);
+        const cleanLoc = encodeURIComponent(loc);
+        const phoneMatch = name.match(/\d+/g) || loc.match(/\d+/g);
+        const phone = phoneMatch ? phoneMatch.join('') : '';
+
+        row.innerHTML = `
+            <td>
+                <b>${name}</b><br>
+                <small>${loc}</small>
+                ${note ? `<span class="note-text">📝 ${note}</span>` : ''}
+            </td>
+            <td>
+                <div class="action-btns">
+                    ${loc ? `<button class="btn-circle btn-map" onclick="window.open('https://www.google.com/maps/search/?api=1&query=${cleanLoc}')">📍</button>` : ''}
+                    ${phone ? `<button class="btn-circle btn-call" onclick="window.open('tel:${phone}')">📞</button>` : ''}
+                    <button class="btn-circle btn-del" onclick="this.closest('tr').remove();saveStudents();">✕</button>
+                </div>
+            </td>`;
+    }
+
+    function saveStudents() {
+        const rows = [];
+        document.querySelectorAll('#studentTable tr').forEach(tr => {
+            const noteSpan = tr.querySelector('.note-text');
+            rows.push({
+                name: tr.cells[0].querySelector('b').innerText, 
+                loc: tr.cells[0].querySelector('small').innerText,
+                note: noteSpan ? noteSpan.innerText.replace('📝 ', '') : ''
+            });
+        });
+        document.getElementById('studentCount').innerText = rows.length;
+        localStorage.setItem(STUDENT_KEY, JSON.stringify(rows));
+    }
+
+    // --- SHARED ---
+    function toggleDarkMode() {
+        document.body.classList.toggle('dark-mode');
+        localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+    }
+
+    function saveTitle() { localStorage.setItem('appTitle', document.getElementById('siteName').value); }
+
+    function downloadCSV() {
+        let csv = 'Date,Hours,Bs\n';
+        JSON.parse(localStorage.getItem(WORK_KEY) || '[]').forEach(d => { csv += `"${d.date}","${d.hours}","${d.bs}"\n`; });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+        a.download = 'report.csv'; a.click();
+    }
+
+    window.onload = () => {
+        if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
+        const title = localStorage.getItem('appTitle'); if(title) document.getElementById('siteName').value = title;
+
+        const workData = JSON.parse(localStorage.getItem(WORK_KEY) || '[]');
+        workData.reverse().forEach(d => renderWorkRow(d.date, d.hours, d.bs));
+        saveWork();
+
+        const studentData = JSON.parse(localStorage.getItem(STUDENT_KEY) || '[]');
+        studentData.reverse().forEach(d => renderStudentRow(d.name, d.loc, d.note));
+        saveStudents();
+        
+        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
+    };
+</script>
+</body>
+</html>
